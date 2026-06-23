@@ -1,0 +1,39 @@
+{
+  "articles": [
+    {
+      "title": "Praful Patel & Kushal Das congratulate Gokulam Kerala on winning the 2021/22 I-League title",
+      "description": "Praful Patel & Kushal Das congratulate Gokulam Kerala on winning the 2021/22 I-League title",
+      "image_url": "https://example.com/img1.webp",
+      "rating": 1,
+      "placeholderColor": { "red": 195, "green": 186, "blue": 177 }
+    },
+    {
+      "title": "Johnson says UK will act on N. Ireland rules if EU won't",
+      "description": "Johnson says UK will act on N. Ireland rules if EU won't",
+      "image_url": "https://placehold.co/912x513/cccccc/666666.png?text=Image+Unavailable",
+      "rating": 3,
+      "placeholderColor": { "red": 202, "green": 118, "blue": 46 }
+    },
+    {
+      "title": "Maryland's Sen. Chris Van Hollen treated for minor stroke",
+      "description": "Maryland's Sen. Chris Van Hollen treated for minor stroke",
+      "image_url": "https://placehold.co/912x513/cccccc/666666.png?text=Image+Unavailable",
+      "rating": 5,
+      "placeholderColor": { "red": 180, "green": 136, "blue": 86 }
+    },
+    {
+      "title": "Jim Acosta calls out Tucker Carlson, Fox News for profiting off white supremacy",
+      "description": "\"What Tucker Carlson is doing ... in peddling white nationalist talking points is dangerous,\" says CNN's Acosta",
+      "image_url": "https://placehold.co/912x513/cccccc/666666.png?text=Image+Unavailable",
+      "rating": 5,
+      "placeholderColor": { "red": 180, "green": 136, "blue": 86 }
+    },
+    {
+      "title": "Shanghai says lockdown to ease as virus spread mostly ends",
+      "description": "Shanghai says lockdown to ease as virus spread mostly ends",
+      "image_url": "https://placehold.co/912x513/cccccc/666666.png?text=Image+Unavailable",
+      "rating": 3,
+      "placeholderColor": { "red": 202, "green": 118, "blue": 46 }
+    }
+  ]
+}

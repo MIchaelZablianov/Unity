@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+      Custom permission guarding the article provider.
+
+      `signature` protectionLevel means only apps signed with the SAME key as BackendApp may
+      hold it — no user prompt, no runtime grant. This is what restricts the dataset to our own
+      UI app (and any future first-party caller) while keeping it invisible to arbitrary apps.
+
+      Requirement: BackendApp and UIApp must be installed from APKs signed with the same
+      signing key (true by default for debug builds on the same machine). Documented in README.
+    -->
+    <permission
+        android:name="com.unity.backendapp.permission.READ_ARTICLES"
+        android:protectionLevel="signature" />
+
+    <application
+        android:name=".BackendApplication"
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.BackendApp">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:theme="@style/Theme.BackendApp"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <provider
+            android:name=".provider.ArticleContentProvider"
+            android:authorities="com.unity.backendapp.provider"
+            android:exported="true"
+            android:readPermission="com.unity.backendapp.permission.READ_ARTICLES" />
+    </application>
+
+</manifest>

@@ -1,0 +1,25 @@
+# macOS
+.DS_Store
+
+# Gradle
+.gradle
+/build
+**/build
+
+# IntelliJ / Android Studio
+*.iml
+.idea
+*.ipr
+*.iws
+
+# Kotlin
+**/out
+
+# Local properties
+local.properties
+
+# Hilt
+**/generated/
+
+# logs
+*.log
