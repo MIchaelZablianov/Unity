@@ -43,7 +43,9 @@ data class ArticleFilter(
         }
 
         val sql = buildString {
-            append("SELECT * FROM articles")
+            append("SELECT ")
+            append(ARTICLE_COLUMNS.joinToString(", "))
+            append(" FROM articles")
             if (conditions.isNotEmpty()) {
                 append(" WHERE ")
                 append(conditions.joinToString(" AND "))
@@ -57,6 +59,17 @@ data class ArticleFilter(
         /** URI query-parameter names — the IPC contract between the two apps. */
         const val PARAM_TITLE = "titleQuery"
         const val PARAM_RATING_MIN = "ratingMin"
+
+        val ARTICLE_COLUMNS = listOf(
+            "id",
+            "title",
+            "description",
+            "image_url",
+            "rating",
+            "color_red",
+            "color_green",
+            "color_blue"
+        )
 
         /**
          * Parses a filter from a ContentProvider URI's query parameters.

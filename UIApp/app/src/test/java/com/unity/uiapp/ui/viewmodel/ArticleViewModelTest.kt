@@ -53,7 +53,7 @@ class ArticleViewModelTest {
     }
 
     @Test
-    fun updateTitleQuery_doesNotTriggerFilter() = runTest(testDispatcher) {
+    fun applyFilters_nonexistentTitle_returnsEmpty() = runTest(testDispatcher) {
         viewModel.updateTitleQuery("Nonexistent")
         viewModel.applyFilters()
         testDispatcher.scheduler.advanceUntilIdle()

@@ -12,7 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.unity.uiapp.ui.screen.ArticleListScreen
+import com.unity.uiapp.ui.screen.ArticleListRoute
 import com.unity.uiapp.ui.theme.UIAppTheme
 import com.unity.uiapp.ui.viewmodel.ArticleViewModel
 import dagger.hilt.android.AndroidEntryPoint
@@ -27,7 +27,7 @@ class MainActivity : ComponentActivity() {
             UIAppTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     val viewModel: ArticleViewModel = hiltViewModel()
-                    ArticleListScreen(
+                    ArticleListRoute(
                         viewModel = viewModel,
                         modifier = Modifier.padding(innerPadding)
                     )

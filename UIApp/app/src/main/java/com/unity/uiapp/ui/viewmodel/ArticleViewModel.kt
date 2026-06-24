@@ -12,6 +12,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -49,7 +50,7 @@ data class ArticleUiState(
 @HiltViewModel
 class ArticleViewModel @Inject constructor(
     private val dataSource: ArticlesDataSource,
-    @IoDispatcher private val ioDispatcher: CoroutineDispatcher
+    @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : ViewModel() {
 
     private val tag = "ArticleViewModel"
@@ -75,8 +76,9 @@ class ArticleViewModel @Inject constructor(
     }
 
     /**
-     * Runs the current filter against the backend. Cancels any in-flight fetch first so a rapid
-     * second apply can't overwrite the latest result out of order.
+     * Runs the current filter against the backend. Cancels any in-flight fetch first, so a rapid
+     * second apply can't overwrite the latest result out of order: the cancelled coroutine throws
+     * at its next suspension point / `ensureActive()` and never reaches the state update.
      */
     fun applyFilters() {
         fetchJob?.cancel()
@@ -86,6 +88,7 @@ class ArticleViewModel @Inject constructor(
             logD(tag, "applyFilters: filter=$filter")
             try {
                 val articles = dataSource.fetchArticles(filter)
+                ensureActive()
                 _state.update {
                     it.copy(
                         articles = articles,

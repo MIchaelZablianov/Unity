@@ -4,10 +4,12 @@ Data provider app that owns the article dataset. Seeds `assets/raw/articles.json
 
 ## Build
 
+Requires **JDK 17+** and the Android SDK. Android Studio (Ladybug or newer) resolves both
+automatically; from the command line, point `JAVA_HOME` at a JDK 17+ if your shell default is older.
+
 ```bash
 cd BackendApp
-./gradlew assembleDebug \
-  -Dorg.gradle.java.home=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
+./gradlew assembleDebug
 ```
 
 APK at `app/build/outputs/apk/debug/app-debug.apk`.
@@ -24,7 +26,7 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 
 ## Verify it works
 
-### 1. ContentProvider via ADB
+### 1. ContentProvider via ADB (debug builds only)
 
 ```bash
 # Fetch all articles — should return a cursor with ~129 rows
@@ -34,12 +36,19 @@ adb shell content query --uri content://com.unity.backendapp.provider/articles
 adb shell content query --uri \
   "content://com.unity.backendapp.provider/articles?titleQuery=sport"
 
-# Filter by minimum rating
+# Combined filter — note the escaped \& so the device shell doesn't treat it as a separator
 adb shell content query --uri \
-  "content://com.unity.backendapp.provider/articles?ratingMin=4"
+  "content://com.unity.backendapp.provider/articles?titleQuery=biden\&ratingMin=4"
 ```
 
-A successful response is a tabular cursor. On a device, `content query` prints rows directly.
+A successful response is a tabular cursor; on a device, `content query` prints rows directly.
+
+> **Why "debug builds only":** the release manifest guards the provider with a signature-level
+> permission, so `adb shell` (which runs as the unsigned `shell` uid) is **correctly denied** —
+> that is the security model working. A debug-only manifest overlay
+> (`src/debug/AndroidManifest.xml`) drops that permission so the provider can be inspected from
+> the shell during development. For a release build, verify via the dashboard (step 2) and the
+> UI app (step 3) instead.
 
 ### 2. Dashboard screen
 
@@ -53,27 +62,30 @@ Install UIApp, launch it. If the article list populates, IPC is working.
 
 ```
 assets/raw/articles.json
-  → ArticleContentProvider.onCreate() → Room (synchronous build)
-    → seedOnce() (lazy, on first query)
+  → ArticleSeeder.ensureSeeded()  (lazy, idempotent — triggered by the first provider
+  │                                query OR the dashboard, whichever comes first)
+  → ArticleContentProvider.query()
       → ArticlesRepository.query(ArticleFilter)
         → ArticleDao.queryArticles(SimpleSQLiteQuery)
-          → Cursor via ContentProvider.query()
+          → Cursor returned across the binder
 ```
 
 - **`kotlinx.serialization`** for type-safe JSON deserialization into `Article` / `ArticlesResponse`.
-- **Room** as the persistence layer. DB is built synchronously in `onCreate()` (cheap — file open, no data I/O). Seeding happens lazily on the first `query()` to avoid blocking process start.
-- **`ContentProvider.query()`** returns a `Cursor` (the standard Android idiom for tabular cross-process data). Filter parameters travel as URI query parameters (`titleQuery`, `ratingMin`).
+- **Room** as the persistence layer, provided by Hilt (`DatabaseModule`) as a `@Singleton`. The DB build itself is cheap (file open, no data I/O). Seeding is deferred to first access so process start isn't blocked by JSON I/O.
+- **`ArticleSeeder`** owns one-time seeding. It is idempotent and thread-safe and is invoked by *both* the ContentProvider and the dashboard `ViewModel`, so the backend app shows its data whether it is launched standalone or hit over IPC first.
+- **`ContentProvider.query()`** returns a `Cursor` (the standard Android idiom for tabular cross-process data) and `getType()` returns a vendor MIME type for the articles directory. Filter parameters travel as URI query parameters (`titleQuery`, `ratingMin`).
 - **`ArticleFilter`** data class owns the filter contract. `toSqlQuery()` renders parameterized SQL (injection-safe — user values are always bound, never interpolated). `fromUri()` parses the IPC contract. Adding a new filter is a localized change in this one class.
-- **`ArticlesRepository`** sits between the provider and Room — the provider translates IPC ↔ `ArticleFilter`, the repository translates `ArticleFilter` ↔ SQL. This separation keeps both layers unit-testable independently.
-- **Security**: the provider is `exported="true"` but requires `android:readPermission="com.unity.backendapp.permission.READ_ARTICLES"` (`protectionLevel="signature"`). Only apps signed with the same key as BackendApp can read data.
-- **Hilt** provides the Room database (via `DatabaseProvider.instance`) and DAO. `ArticlesRepository` is `@Singleton @Inject`.
+- **`ArticlesRepository`** sits between the provider and Room — the provider translates IPC ↔ `ArticleFilter`, the repository translates `ArticleFilter` ↔ SQL and exposes seeding. This separation keeps each layer unit-testable independently.
+- **Security**: the provider is `exported="true"` but requires `android:readPermission="com.unity.backendapp.permission.READ_ARTICLES"` (`protectionLevel="signature"`). Only apps signed with the same key as BackendApp can read data. A debug-only manifest overlay (`src/debug/AndroidManifest.xml`) lifts that permission so `adb shell content query` works during development; release builds keep it enforced.
+- **Hilt** provides the Room database, DAO and `ArticleSeeder`. The ContentProvider — which Hilt cannot inject directly — reaches the same singletons through a Hilt `@EntryPoint` (resolved lazily on first query, once the app is initialized).
 - **No networking**: JSON is bundled in assets; no OkHttp/Retrofit dependency.
 - **No foreground service**: Room persists data to disk, so the DB survives process death. The ContentProvider is re-created by the OS on demand.
+- **Release builds** run R8 in full mode (shrink + obfuscate + optimize); see `app/build.gradle.kts`.
 
 ## Tests
 
 ```bash
-# Unit tests — ArticleFilter SQL rendering (6), JSON parsing + entity mapping (4), example (1)
+# Unit tests — ArticleFilter SQL rendering (6), JSON parsing + entity mapping (4)
 ./gradlew testDebugUnitTest
 
 # Instrumentation tests — ContentProvider IPC contract (8), DAO with in-memory Room (5)
@@ -89,7 +101,9 @@ assets/raw/articles.json
 
 ## Key gotchas
 
-- `android.util.Log` throws `RuntimeException("Stub!")` in JVM unit tests — all logging uses try-catch wrappers.
+- JVM unit tests cover only pure code (`ArticleFilter`, JSON parsing); anything touching
+  `android.net.Uri`, `android.util.Log` or Room is exercised by instrumented tests, so the unit
+  suite needs no Android-stub workarounds.
 - ContentProvider authority: `com.unity.backendapp.provider` (must match UIApp's `<queries>` entry).
 - Signature permission requires same signing key for both APKs (see Install section).
 - `ArticleFilter.toSqlQuery()` is pure JVM-testable; `fromUri()` depends on `android.net.Uri` and is tested via instrumented tests.

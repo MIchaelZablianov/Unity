@@ -7,26 +7,15 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.lifecycle.lifecycleScope
-import com.unity.backendapp.data.db.ArticleDatabase
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.unity.backendapp.ui.screen.DashboardScreen
 import com.unity.backendapp.ui.theme.BackendAppTheme
+import com.unity.backendapp.ui.viewmodel.DashboardViewModel
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
-    @Inject lateinit var database: ArticleDatabase
-
-    private var articleCount by mutableStateOf(0)
-    private var isLoading by mutableStateOf(true)
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -34,18 +23,13 @@ class MainActivity : ComponentActivity() {
         setContent {
             BackendAppTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                    val viewModel: DashboardViewModel = hiltViewModel()
                     DashboardScreen(
-                        articleCount = articleCount,
-                        isLoading = isLoading,
+                        viewModel = viewModel,
                         modifier = Modifier.padding(innerPadding)
                     )
                 }
             }
-        }
-
-        lifecycleScope.launch(Dispatchers.IO) {
-            articleCount = database.articleDao().count()
-            isLoading = false
         }
     }
 }

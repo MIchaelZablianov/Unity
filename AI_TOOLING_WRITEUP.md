@@ -4,9 +4,9 @@
 
 This project was built through iterative pair-programming with an LLM-powered coding agent on a Mac terminal. The AI had no Android emulator or IDE access — only file read/write, bash, grep/glob search, and Gradle test output.
 
-- **Agent**: ZCode (opencode CLI)
+- **Agent**: ZCode (opencode CLI), plus a later AI-assisted review pass (see "Post-review hardening")
 - **Total files created/edited**: ~30 source files across 2 Gradle modules
-- **Total tests**: 43 (24 unit + 21 instrumented, all passing)
+- **Total tests**: 44 (20 unit + 24 instrumented)
 - **Total iterations (build→test→fix cycles)**: ~50 across all phases
 
 ---
@@ -98,6 +98,29 @@ Filter SQL was initially inlined in the ContentProvider's `query()` method, maki
 6. **Don't trust AI's architecture at face value**: The initial implementation had good code but the wrong architecture (`call()` instead of `query()`, no security, no extensibility model). A human design review caught all of this. Use AI for speed, not for architecture judgment.
 
 ---
+
+## Post-review hardening
+
+After the first end-to-end build, I ran an AI-assisted code review over the whole repo and fixed the
+findings myself:
+
+- **Standalone seeding bug.** Seeding only ran inside the provider's `query()`, so launching
+  BackendApp on its own showed *zero* articles. Extracted an idempotent `ArticleSeeder` invoked by
+  *both* the provider and the dashboard `ViewModel`, so the data is present on either entry path.
+- **Hilt ↔ ContentProvider bridge.** Replaced the hand-rolled `ArticleDatabaseFactory` singleton
+  with a Hilt `@EntryPoint` resolved lazily in `query()`. One source of truth for the DB; the
+  provider no longer duplicates instance management.
+- **R8 enabled** for release in both apps (was disabled) — shrink + obfuscate + optimize.
+- **Test gap closed.** Added `ContentResolverMappingTest` (the cursor → `Article` mapping was the
+  riskiest code and was only covered transitively). Extracted `mapCursorToArticles` to make it
+  testable with a `MatrixCursor`.
+- **Simplification.** Removed a redundant `AtomicInteger` request-id guard in the ViewModel —
+  structured cancellation (`fetchJob.cancel()` + `ensureActive()`) already prevents stale writes.
+- **Repo hygiene & docs.** Added `getType()` MIME, fixed stale README references and machine-specific
+  build commands, added a root README, and stopped tracking AI tooling / scratch docs.
+
+The lesson reinforces point 6 below: AI is excellent for *speed*, but a deliberate review pass —
+human-led, AI-assisted — is what catches the architecture- and lifecycle-level issues.
 
 ## What I would do differently next time
 

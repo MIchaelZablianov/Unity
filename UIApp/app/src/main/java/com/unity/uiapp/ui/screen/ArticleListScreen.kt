@@ -26,24 +26,41 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.unity.uiapp.ui.component.ArticleCard
+import com.unity.uiapp.ui.viewmodel.ArticleUiState
 import com.unity.uiapp.ui.viewmodel.ArticleViewModel
 
 @Composable
-fun ArticleListScreen(
+fun ArticleListRoute(
     viewModel: ArticleViewModel,
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    ArticleListScreen(
+        state = state,
+        onTitleQueryChange = viewModel::updateTitleQuery,
+        onRatingMinChange = viewModel::updateRatingMin,
+        onApplyFilters = viewModel::applyFilters,
+        modifier = modifier
+    )
+}
 
+@Composable
+fun ArticleListScreen(
+    state: ArticleUiState,
+    onTitleQueryChange: (String) -> Unit,
+    onRatingMinChange: (Int) -> Unit,
+    onApplyFilters: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     Column(
         modifier = modifier.fillMaxSize()
     ) {
         FilterBar(
             titleQuery = state.titleQuery,
             ratingMin = state.ratingMin,
-            onTitleQueryChange = viewModel::updateTitleQuery,
-            onRatingMinChange = viewModel::updateRatingMin,
-            onApply = viewModel::applyFilters
+            onTitleQueryChange = onTitleQueryChange,
+            onRatingMinChange = onRatingMinChange,
+            onApply = onApplyFilters
         )
 
         when {
