@@ -3,7 +3,7 @@
 ## Tools used, and roughly how often
 
 Built through pair-programming with several AI agents on a Mac terminal, used
-roughly equaly and deliberately cross-checked against each other:
+roughly equally and deliberately cross-checked against each other:
 
 - opencode / ZCode + GLM 5.2
 - Codex + GPT-5.5
