@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Debug-only manifest overlay.
+
+  The release manifest guards the provider with a signature-level `readPermission`, so only
+  same-key first-party apps can read it. That (correctly) also blocks `adb shell content query`,
+  because the shell process (uid 2000) is not signed with our key.
+
+  For local development we drop the readPermission *in debug builds only*, so the provider can be
+  inspected with `adb shell content query`. Release builds are unaffected and stay locked down.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <application>
+        <provider
+            android:name=".provider.ArticleContentProvider"
+            android:authorities="com.unity.backendapp.provider"
+            tools:remove="android:readPermission" />
+    </application>
+
+</manifest>

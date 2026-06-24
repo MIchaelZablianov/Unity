@@ -17,8 +17,12 @@ import javax.inject.Singleton
  */
 @Singleton
 class ArticlesRepository @Inject constructor(
-    private val dao: ArticleDao
+    private val dao: ArticleDao,
+    private val seeder: ArticleSeeder
 ) {
+    /** Idempotently seeds the dataset from bundled JSON. Safe to call from any data entry point. */
+    fun ensureSeeded() = seeder.ensureSeeded()
+
     /** Runs [filter] against the dataset and returns a live Cursor over the matches. */
     fun query(filter: ArticleFilter): Cursor {
         val rendered: ArticleSqlQuery = filter.toSqlQuery()

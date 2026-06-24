@@ -25,9 +25,15 @@ android {
 
     buildTypes {
         release {
-            optimization {
-                enable = false
-            }
+            // R8 full mode: shrink + obfuscate + optimize, plus resource shrinking. Compose, Hilt
+            // and Coil ship their own consumer/keep rules, so the project rules file is
+            // essentially empty.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
     compileOptions {

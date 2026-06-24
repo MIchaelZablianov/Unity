@@ -23,3 +23,11 @@ local.properties
 
 # logs
 *.log
+
+# Claude Code / AI agent tooling (not part of the deliverable)
+.claude/
+
+# Working / scratch docs (kept locally, not shipped)
+AGENTS.md
+plan.md
+progress_summary.md

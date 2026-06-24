@@ -4,6 +4,7 @@ import android.content.ContentProviderClient
 import android.net.Uri
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -23,8 +24,8 @@ class ArticleContentProviderTest {
         providerClient = context.contentResolver
             .acquireContentProviderClient("com.unity.backendapp.provider")
             ?: throw IllegalStateException("ContentProvider not available")
-        // The provider builds Room synchronously in onCreate(), so the first query below is
-        // ready immediately — no retry/poll loop needed.
+        // Seeding runs synchronously inside the first query() (ArticleSeeder.ensureSeeded), so the
+        // queries below see a populated database immediately — no retry/poll loop needed.
     }
 
     @Test
@@ -109,14 +110,19 @@ class ArticleContentProviderTest {
         cursor?.use {
             assertTrue(it.moveToFirst())
             val columns = it.columnNames.toList()
-            assertTrue("title", columns.contains("title"))
-            assertTrue("description", columns.contains("description"))
-            assertTrue("image_url", columns.contains("image_url"))
-            assertTrue("rating", columns.contains("rating"))
-            assertTrue("color_red", columns.contains("color_red"))
-            assertTrue("color_green", columns.contains("color_green"))
-            assertTrue("id", columns.contains("id"))
-            assertTrue("color_blue", columns.contains("color_blue"))
+            assertEquals(
+                listOf(
+                    "id",
+                    "title",
+                    "description",
+                    "image_url",
+                    "rating",
+                    "color_red",
+                    "color_green",
+                    "color_blue"
+                ),
+                columns
+            )
         }
     }
 

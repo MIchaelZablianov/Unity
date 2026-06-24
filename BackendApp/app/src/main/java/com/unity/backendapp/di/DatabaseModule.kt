@@ -1,10 +1,12 @@
 package com.unity.backendapp.di
 
-import com.unity.backendapp.data.db.ArticleDao
+import android.content.Context
+import androidx.room.Room
 import com.unity.backendapp.data.db.ArticleDatabase
-import com.unity.backendapp.data.db.DatabaseProvider
+import com.unity.backendapp.data.db.ArticleDao
 import dagger.Module
 import dagger.Provides
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
@@ -14,16 +16,16 @@ import javax.inject.Singleton
 object DatabaseModule {
 
     /**
-     * Returns the Room database built by the ContentProvider at process start.
-     *
-     * The provider runs before any Activity is created, so by the time Hilt satisfies
-     * an injection the instance is already published to [DatabaseProvider]. This avoids
-     * building a second Room instance and keeps a single write path during seeding.
+     * The process-wide Room database. Hilt's `@Singleton` guarantees a single instance, which the
+     * ContentProvider reaches through a Hilt `EntryPoint` — so provider IPC and the app's own
+     * dashboard share one database without relying on provider initialization order.
      */
     @Provides
     @Singleton
-    fun provideDatabase(): ArticleDatabase =
-        DatabaseProvider.instance ?: error("Database not initialized")
+    fun provideDatabase(@ApplicationContext context: Context): ArticleDatabase =
+        Room.databaseBuilder(context, ArticleDatabase::class.java, "articles.db")
+            .fallbackToDestructiveMigration()
+            .build()
 
     @Provides
     @Singleton

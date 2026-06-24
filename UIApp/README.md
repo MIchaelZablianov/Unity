@@ -10,10 +10,12 @@ News reader UI that fetches articles from BackendApp's ContentProvider via IPC. 
 
 ## Build
 
+Requires **JDK 17+** and the Android SDK. Android Studio (Ladybug or newer) resolves both
+automatically; from the command line, point `JAVA_HOME` at a JDK 17+ if your shell default is older.
+
 ```bash
 cd UIApp
-./gradlew assembleDebug \
-  -Dorg.gradle.java.home=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
+./gradlew assembleDebug
 ```
 
 APK at `app/build/outputs/apk/debug/app-debug.apk`.
@@ -85,10 +87,10 @@ BackendApp ContentProvider (query → Cursor)
 ## Tests
 
 ```bash
-# Unit tests — ArticleViewModel (10), example (1)
+# Unit tests — ArticleViewModel (10)
 ./gradlew testDebugUnitTest
 
-# Instrumentation tests — ArticleCard Compose (3), ArticleFilterUri (5)
+# Instrumentation tests — ArticleCard Compose (3), ArticleFilterUri (5), cursor mapping (3)
 ./gradlew connectedDebugAndroidTest
 ```
 
@@ -97,6 +99,7 @@ BackendApp ContentProvider (query → Cursor)
 | `ArticleViewModelTest` | `src/test` | 10 | Loading state, filter application, title/rating filter, empty result, error state, rating clamping, error vs empty distinction |
 | `ArticleFilterUriTest` | `src/androidTest` | 5 | URI encoding: empty filter, title only, rating only, both, blank-title skipping |
 | `ArticleCardTest` | `src/androidTest` | 3 | Title/description rendered, rating number, low-rating variant |
+| `ContentResolverMappingTest` | `src/androidTest` | 3 | Cursor → `Article` mapping: all columns, empty cursor, missing-column failure |
 
 ## Key gotchas
 

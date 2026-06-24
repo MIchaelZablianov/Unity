@@ -11,11 +11,13 @@ import org.junit.Test
  * ArticleContentProviderTest instead.
  */
 class ArticleFilterTest {
+    private val selectArticles =
+        "SELECT id, title, description, image_url, rating, color_red, color_green, color_blue FROM articles"
 
     @Test
     fun `no filter renders bare select ordered by title`() {
         val q = ArticleFilter().toSqlQuery()
-        assertEquals("SELECT * FROM articles ORDER BY title ASC", q.sql)
+        assertEquals("$selectArticles ORDER BY title ASC", q.sql)
         assertEquals(emptyList<Any>(), q.args)
     }
 
@@ -23,7 +25,7 @@ class ArticleFilterTest {
     fun `title filter uses NOCASE like with wildcard arg`() {
         val q = ArticleFilter(titleQuery = "news").toSqlQuery()
         assertEquals(
-            "SELECT * FROM articles WHERE title LIKE ? COLLATE NOCASE ORDER BY title ASC",
+            "$selectArticles WHERE title LIKE ? COLLATE NOCASE ORDER BY title ASC",
             q.sql
         )
         assertEquals(listOf<Any>("%news%"), q.args)
@@ -32,7 +34,7 @@ class ArticleFilterTest {
     @Test
     fun `blank title is treated as no filter`() {
         val q = ArticleFilter(titleQuery = "   ").toSqlQuery()
-        assertEquals("SELECT * FROM articles ORDER BY title ASC", q.sql)
+        assertEquals("$selectArticles ORDER BY title ASC", q.sql)
         assertEquals(emptyList<Any>(), q.args)
     }
 
@@ -40,7 +42,7 @@ class ArticleFilterTest {
     fun `rating min filter binds the integer`() {
         val q = ArticleFilter(ratingMin = 4).toSqlQuery()
         assertEquals(
-            "SELECT * FROM articles WHERE rating >= ? ORDER BY title ASC",
+            "$selectArticles WHERE rating >= ? ORDER BY title ASC",
             q.sql
         )
         assertEquals(listOf<Any>(4), q.args)
@@ -50,7 +52,7 @@ class ArticleFilterTest {
     fun `title and rating combine with AND and preserve arg order`() {
         val q = ArticleFilter(titleQuery = "sport", ratingMin = 3).toSqlQuery()
         assertEquals(
-            "SELECT * FROM articles WHERE title LIKE ? COLLATE NOCASE AND rating >= ? ORDER BY title ASC",
+            "$selectArticles WHERE title LIKE ? COLLATE NOCASE AND rating >= ? ORDER BY title ASC",
             q.sql
         )
         assertEquals(listOf<Any>("%sport%", 3), q.args)
@@ -64,7 +66,7 @@ class ArticleFilterTest {
         assertEquals(listOf<Any>("%$hostile%"), q.args)
         // The SQL itself contains no trace of the payload — only the placeholder.
         assertEquals(
-            "SELECT * FROM articles WHERE title LIKE ? COLLATE NOCASE ORDER BY title ASC",
+            "$selectArticles WHERE title LIKE ? COLLATE NOCASE ORDER BY title ASC",
             q.sql
         )
     }

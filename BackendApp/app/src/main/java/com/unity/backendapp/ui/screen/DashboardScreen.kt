@@ -21,6 +21,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,19 +29,49 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.unity.backendapp.ui.viewmodel.DashboardUiState
+import com.unity.backendapp.ui.viewmodel.DashboardViewModel
 
 @Composable
 fun DashboardScreen(
-    articleCount: Int,
-    isLoading: Boolean,
+    viewModel: DashboardViewModel,
     modifier: Modifier = Modifier
 ) {
-    if (isLoading) {
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    DashboardContent(
+        state = state,
+        modifier = modifier
+    )
+}
+
+@Composable
+private fun DashboardContent(
+    state: DashboardUiState,
+    modifier: Modifier = Modifier
+) {
+    if (state.isLoading) {
         Box(
             modifier = modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
             CircularProgressIndicator()
+        }
+        return
+    }
+
+    state.error?.let { error ->
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = error,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.error
+            )
         }
         return
     }
@@ -52,7 +83,7 @@ fun DashboardScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         item { HeaderSection() }
-        item { StatusCard(articleCount) }
+        item { StatusCard(state.articleCount) }
         item { ProviderInfoCard() }
     }
 }

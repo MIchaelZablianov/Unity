@@ -1,14 +1,19 @@
 package com.unity.uiapp.data
 
 import android.content.Context
+import android.database.Cursor
 import android.net.Uri
 import android.os.CancellationSignal
+import android.os.OperationCanceledException
 import android.util.Log
 import com.unity.uiapp.data.model.Article
+import com.unity.uiapp.data.model.ArticleFilter
 import com.unity.uiapp.data.model.PlaceholderColor
 import com.unity.uiapp.di.IoDispatcher
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
@@ -23,15 +28,15 @@ private fun logE(tag: String, msg: String, e: Throwable? = null) =
 
 @Singleton
 class ContentResolverDataSource @Inject constructor(
-    @ApplicationContext private val context: Context,
-    @IoDispatcher private val ioDispatcher: CoroutineDispatcher
+    @param:ApplicationContext private val context: Context,
+    @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : ArticlesDataSource {
 
     private val tag = "UIDataSource"
     private val contentResolver = context.contentResolver
     private val baseUri = Uri.parse("content://com.unity.backendapp.provider/articles")
 
-    override suspend fun fetchArticles(filter: com.unity.uiapp.data.model.ArticleFilter): List<Article> =
+    override suspend fun fetchArticles(filter: ArticleFilter): List<Article> =
         withContext(ioDispatcher) {
             val uri = filter.toUri(baseUri)
             logD(tag, "fetchArticles: uri=$uri")
@@ -39,7 +44,7 @@ class ContentResolverDataSource @Inject constructor(
             // Cancel the binder query if the coroutine is cancelled or times out. Without this,
             // withTimeout only unwinds the coroutine while the provider keeps running the query.
             val cancellationSignal = CancellationSignal()
-            val parentJob = currentCoroutineContext()[kotlinx.coroutines.Job]
+            val parentJob = currentCoroutineContext()[Job]
             val handle = parentJob?.invokeOnCompletion { cancellationSignal.cancel() }
 
             val cursor = try {
@@ -50,7 +55,9 @@ class ContentResolverDataSource @Inject constructor(
                 handle?.dispose()
                 logE(tag, "fetchArticles: timed out", e)
                 throw IOException("Timed out contacting backend", e)
-            } catch (e: java.util.concurrent.CancellationException) {
+            } catch (e: OperationCanceledException) {
+                throw CancellationException("Backend query was cancelled").also { it.initCause(e) }
+            } catch (e: CancellationException) {
                 // Coroutine was cancelled; honour cancellation rather than converting to empty.
                 throw e
             } catch (e: Exception) {
@@ -67,42 +74,51 @@ class ContentResolverDataSource @Inject constructor(
                 throw IOException("Backend provider returned no cursor")
             }
 
-            cursor.use { c ->
-                // Resolve column indices once, not per row.
-                val idxId = c.getColumnIndexOrThrow("id")
-                val idxTitle = c.getColumnIndexOrThrow("title")
-                val idxDescription = c.getColumnIndexOrThrow("description")
-                val idxImageUrl = c.getColumnIndexOrThrow("image_url")
-                val idxRating = c.getColumnIndexOrThrow("rating")
-                val idxRed = c.getColumnIndexOrThrow("color_red")
-                val idxGreen = c.getColumnIndexOrThrow("color_green")
-                val idxBlue = c.getColumnIndexOrThrow("color_blue")
-
-                val articles = ArrayList<Article>(c.count)
-                while (c.moveToNext()) {
-                    // ensureActive() lets a cancelled fetch bail out mid-iteration.
-                    ensureActive()
-                    articles.add(
-                        Article(
-                            id = c.getInt(idxId),
-                            title = c.getString(idxTitle),
-                            description = c.getString(idxDescription),
-                            imageUrl = c.getString(idxImageUrl),
-                            rating = c.getInt(idxRating),
-                            placeholderColor = PlaceholderColor(
-                                red = c.getInt(idxRed),
-                                green = c.getInt(idxGreen),
-                                blue = c.getInt(idxBlue)
-                            )
-                        )
-                    )
-                }
-                logD(tag, "fetchArticles: parsed ${articles.size} articles")
-                articles
-            }
+            val articles = mapCursorToArticles(cursor)
+            logD(tag, "fetchArticles: parsed ${articles.size} articles")
+            articles
         }
 
     companion object {
         private const val QUERY_TIMEOUT_MS = 10_000L
     }
+}
+
+/**
+ * Maps a backend cursor to [Article]s. Extracted from [ContentResolverDataSource.fetchArticles]
+ * so the column-index resolution and row reads — the most error-prone part of the IPC boundary —
+ * can be tested directly with a `MatrixCursor` (see `ContentResolverMappingTest`).
+ *
+ * Column indices are resolved once, not per row. `ensureActive()` lets a cancelled fetch bail out
+ * mid-iteration. The cursor is always closed via [use].
+ */
+internal suspend fun mapCursorToArticles(cursor: Cursor): List<Article> = cursor.use { c ->
+    val idxId = c.getColumnIndexOrThrow("id")
+    val idxTitle = c.getColumnIndexOrThrow("title")
+    val idxDescription = c.getColumnIndexOrThrow("description")
+    val idxImageUrl = c.getColumnIndexOrThrow("image_url")
+    val idxRating = c.getColumnIndexOrThrow("rating")
+    val idxRed = c.getColumnIndexOrThrow("color_red")
+    val idxGreen = c.getColumnIndexOrThrow("color_green")
+    val idxBlue = c.getColumnIndexOrThrow("color_blue")
+
+    val articles = ArrayList<Article>(c.count)
+    while (c.moveToNext()) {
+        currentCoroutineContext().ensureActive()
+        articles.add(
+            Article(
+                id = c.getInt(idxId),
+                title = c.getString(idxTitle),
+                description = c.getString(idxDescription),
+                imageUrl = c.getString(idxImageUrl),
+                rating = c.getInt(idxRating),
+                placeholderColor = PlaceholderColor(
+                    red = c.getInt(idxRed),
+                    green = c.getInt(idxGreen),
+                    blue = c.getInt(idxBlue)
+                )
+            )
+        )
+    }
+    articles
 }
