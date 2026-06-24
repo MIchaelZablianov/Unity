@@ -21,10 +21,12 @@ I also used curated **Android / Kotlin / Compose AI skills** to nudge output tow
 
 ## Where AI was wrong or off-architecture, and how I corrected it
 
-- **IPC surface: `call()` + Bundle instead of `query()` + Cursor.** The first implementation exposed
-  data through `ContentProvider.call()` returning a JSON string. It works, but it's non-idiomatic for
-  tabular data and gives up projection and standard cursor iteration. I moved it to `query()`
-  returning a Room-backed `Cursor` — the standard Android pattern — and had the agents do the migration.
+- **IPC surface: returned a JSON string instead of a Cursor.** The first version sent articles across
+  apps as a JSON blob via `ContentProvider.call()`. I switched it to the standard `query()` + `Cursor`
+  approach, which is the idiomatic Android way to share tabular data between apps.
+- **Old-style database management instead of Room.** The AI reached for hand-rolled
+  `SQLiteOpenHelper`-style database code. I moved it to Room, which gives compile-time-checked
+  queries, less boilerplate, and a cleaner DAO layer to test against.
 - **Exported provider with no access control.** The generated provider was exported with no
   permission, so any app could read it. I added a `signature`-level custom permission so only
   first-party apps (same signing key) can query it, with a debug-only manifest overlay so `adb` and
