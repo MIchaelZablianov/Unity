@@ -1,152 +1,38 @@
-# AI Tooling Use Documentation
-
-## Overview
-
-This project was built through iterative pair-programming with **several AI coding agents, used in
-parallel and deliberately cross-checked against each other**, on a Mac terminal.
-
-- **Agents / models** (used roughly evenly — see breakdown below): **opencode/ZCode driving GLM 5.2**, **Codex with GPT-5.5**, and **Claude (Sonnet and Opus)**.
-- **AI skills**: curated **Android / Kotlin / Compose** skill packs layered on top of the base models, steering output toward idiomatic patterns (StateFlow `UiState`, lifecycle-aware flow collection, Compose state hoisting, Coil image loading, Room `@RawQuery`) rather than each model's default.
-- **Total files created/edited**: ~30 source files across 2 Gradle modules
-- **Total tests**: 44 (20 unit + 24 instrumented)
-- **Total iterations (build→test→fix cycles)**: ~50 across all phases
-
----
+# AI Tooling Write-up
 
 ## Tools used, and roughly how often
 
-| Tool / model | What I used it for | Rough share |
-|---|---|---|
-| **opencode / ZCode + GLM 5.2** | Implementation, scaffolding, the build→test→fix loop | ~⅓ |
-| **Codex + GPT-5.5** | Implementation, a second opinion on design, generating tests | ~⅓ |
-| **Claude (Sonnet + Opus)** | Implementation, code/architecture review, debugging, on-device verification | ~⅓ |
-| **Android / Kotlin / Compose AI skills** | Enforcing idiomatic framework patterns across all of the above | As-needed, layered on top |
+Built through pair-programming with several AI agents on a Mac terminal, used
+roughly equaly and deliberately cross-checked against each other:
 
-No single model was the sole author — the work split roughly evenly across the three agents, and that
-was intentional. I'd have one model implement a slice, then have a *different* model review it or
-re-derive it from scratch. That cross-model disagreement is where a lot of the value came from: it
-surfaced the swallowed-error and lifecycle issues in review, and comparing how each model approached
-the IPC surface (`call()`/Bundle vs `query()`/Cursor) made the right choice obvious. The
-Android/Kotlin/Compose skills sat on top of all three and nudged output toward project conventions —
-`UiState` + `StateFlow`, `collectAsStateWithLifecycle`, stateless screen + thin route, Coil
-`AsyncImage` with the per-article placeholder color — instead of whatever each base model defaulted to.
+- opencode / ZCode + GLM 5.2
+- Codex + GPT-5.5
+- Claude (Sonnet + Opus)
 
----
+I also used curated **Android / Kotlin / Compose AI skills** to nudge output toward idiomatic patterns instead of each model's defaults.
 
-## Workflow
+## Where AI clearly accelerated the work
 
-The project followed a consistent loop across each phase:
+- **Boilerplate and wiring.** ContentProvider, Room entities/DAOs, Compose screens, Hilt modules, and
+  Gradle/version-catalog setup are repetitive; the agents produced these quickly and matched the
+  project's conventions after the first pass.
+- **Test-first debugging.** Running tests, reading stack traces, and fixing failures in a tight loop
+  is something the agents do well and fast — it kept the build green through repeated refactors.
 
-```
-Read assignment spec + existing files
-  → Write/update source files
-    → Run `./gradlew testDebugUnitTest` (and `connectedDebugAndroidTest` when device available)
-      → Parse compiler errors or test failures
-        → Fix and repeat
-```
+## Where AI was wrong or off-architecture, and how I corrected it
 
-Key practice: **persistent context files** (`AGENTS.md`, `progress_summary.md`) were maintained between phases. Each phase summary included "Notes for Next Session" sections — critical because the agents have no memory between sessions, **and no shared memory across different tools**. These files were the hand-off mechanism that let one model pick up where another left off.
+- **IPC surface: `call()` + Bundle instead of `query()` + Cursor.** The first implementation exposed
+  data through `ContentProvider.call()` returning a JSON string. It works, but it's non-idiomatic for
+  tabular data and gives up projection and standard cursor iteration. I moved it to `query()`
+  returning a Room-backed `Cursor` — the standard Android pattern — and had the agents do the migration.
+- **Exported provider with no access control.** The generated provider was exported with no
+  permission, so any app could read it. I added a `signature`-level custom permission so only
+  first-party apps (same signing key) can query it, with a debug-only manifest overlay so `adb` and
+  local testing still work.
 
----
+## What I'd do differently next time
 
-## Architecture choices where AI was helpful
-
-### ContentProvider.query() + Cursor (not call() + Bundle)
-
-The initial plan considered `ContentProvider.call()` returning a JSON string. The AI's first implementation used `call()` with a Bundle, which works but is non-standard for tabular data. During review, the architecture was shifted to `query()` returning a Room-backed `Cursor` — this is the idiomatic Android pattern for cross-process data, supports projection, and lets the UI app use standard `Cursor` iteration. The AI generated the migration cleanly, including a new `@RawQuery` DAO method that returns `Cursor` directly.
-
-### ArticleFilter data class for extensibility
-
-The assignment explicitly requires that *"adding a new filter type should not require a structural rewrite."* The initial implementation had fixed-arity parameters (`fetchArticles(titleQuery: String?, ratingMin: Int?)`), which would require signature changes everywhere for a new filter. The AI extracted an `ArticleFilter` data class with `toSqlQuery()` (pure JVM-testable SQL rendering) and URI param encoding (`toUri` / `fromUri`). New filters are now a localized 4-step change documented in AGENTS.md.
-
-### ArticlesRepository extraction
-
-Filter SQL was initially inlined in the ContentProvider's `query()` method, making it untestable without a device. The AI extracted it into `ArticlesRepository` + `ArticleFilter.toSqlQuery()`, which enabled 6 JVM unit tests for filter logic and 4 for JSON parsing — coverage that previously didn't exist.
-
----
-
-## What the AI got right
-
-- **Boilerplate generation**: ContentProvider, Room entities/DAOs, Compose screens, notification channels, manifest entries — Android has a lot of repetitive scaffolding that AI handles effortlessly.
-- **Gradle dependency wiring**: Version catalogs, plugin application, BOM imports, KSP/Hilt interplay with AGP 9.x. The AI learned the project's conventions after one phase and replicated them.
-- **Test-first debugging**: Running tests, reading stack traces, and fixing failures in a tight loop. The AI methodically addresses each error.
-- **Cross-module consistency**: The `ArticleFilter` contract (param names, types) was mirrored correctly in both apps despite no compile-time dependency.
-- **CancellationSignal wiring**: The AI identified that `withTimeout` alone doesn't cancel the underlying `contentResolver.query()` binder call, and wired `invokeOnCompletion` on the coroutine job to cancel the signal.
-
----
-
-## What the AI got wrong or missed
-
-| Issue | How it was caught | Resolution |
-|---|---|---|
-| `ContentProvider.call()` instead of `query()` | Design review | Migrated to `query()` + `Cursor` + Room — more idiomatic |
-| Fixed-arity `fetchArticles(titleQuery, ratingMin)` | Design review | Extracted `ArticleFilter` data class for extensibility |
-| No security on exported provider | Design review | Added `signature`-level custom permission |
-| Async `Thread` in `onCreate()` causing null cursor race | Instrumentation test needed a 30×200ms poll loop (the code smell) | Made Room init synchronous; seed lazily on first `query()` |
-| `CancellationSignal` not wired to coroutine | Code review | Added `invokeOnCompletion` to cancel signal on coroutine completion |
-| Errors swallowed as `emptyList()` | Code review | Changed to propagate `IOException` so UI distinguishes error vs empty |
-| mockk incompatible with Kotlin 2.2.x | Build failure | Switched to interface-abstraction + fake pattern |
-| `android.util.Log` throws in unit tests | Test crash | Defensive try-catch wrappers |
-| `Bundle.getInt()` returns 0 for missing keys | Discovered during early `call()` approach | Moot after switching to URI query params |
-| `FOREGROUND_SERVICE_DATA_SYNC` requirement on Android 14+ | Build error | Moot after removing foreground service (Room persists, no service needed) |
-| Version catalog syntax errors | Confusing build errors | 2–3 attempts per catalog change to get alias/version reference right |
-
----
-
-## AI-driven vs human-driven decisions
-
-### AI-led (AI suggested, human approved)
-- Interface abstraction (`ArticlesDataSource`) over mocking `ContentResolver`
-- `ArticleFilter` data class + `toSqlQuery()` pattern
-- `CancellationSignal` wiring via `invokeOnCompletion`
-- `StandardTestDispatcher` + constructor-injected dispatcher for VM tests
-
-### Human-led (human identified, AI implemented)
-- Switch from `call()`/Bundle to `query()`/Cursor architecture
-- Signature-protected permission on the provider
-- Extracting `ArticlesRepository` from the provider
-- Lazy seeding instead of foreground service
-- All documentation corrections
-
----
-
-## Recommendations for AI + Android development
-
-1. **Keep a `AGENTS.md`**: A living document of conventions, gotchas, and build commands prevents re-learning across sessions.
-2. **Test-first, always**: The AI's ability to iteratively fix test failures is its strongest capability.
-3. **Plan for context loss**: AI context windows are finite. Persistent summary files are essential.
-4. **Accept the blind spots**: The AI cannot verify layouts, animations, or runtime behavior on a device. Reserve device testing for a human review pass.
-5. **Prefer interface abstractions**: Patterns like `ArticlesDataSource` that decouple from Android framework classes make testing trivially simple. Mocking concrete/final Android classes is a dead end with current AI tooling.
-6. **Don't trust AI's architecture at face value**: The initial implementation had good code but the wrong architecture (`call()` instead of `query()`, no security, no extensibility model). A human design review caught all of this. Use AI for speed, not for architecture judgment.
-
----
-
-## Post-review hardening
-
-After the first end-to-end build, I ran an AI-assisted code review over the whole repo and fixed the
-findings myself:
-
-- **Standalone seeding bug.** Seeding only ran inside the provider's `query()`, so launching
-  BackendApp on its own showed *zero* articles. Extracted an idempotent `ArticleSeeder` invoked by
-  *both* the provider and the dashboard `ViewModel`, so the data is present on either entry path.
-- **Hilt ↔ ContentProvider bridge.** Replaced the hand-rolled `ArticleDatabaseFactory` singleton
-  with a Hilt `@EntryPoint` resolved lazily in `query()`. One source of truth for the DB; the
-  provider no longer duplicates instance management.
-- **R8 enabled** for release in both apps (was disabled) — shrink + obfuscate + optimize.
-- **Test gap closed.** Added `ContentResolverMappingTest` (the cursor → `Article` mapping was the
-  riskiest code and was only covered transitively). Extracted `mapCursorToArticles` to make it
-  testable with a `MatrixCursor`.
-- **Simplification.** Removed a redundant `AtomicInteger` request-id guard in the ViewModel —
-  structured cancellation (`fetchJob.cancel()` + `ensureActive()`) already prevents stale writes.
-- **Repo hygiene & docs.** Added `getType()` MIME, fixed stale README references and machine-specific
-  build commands, added a root README, and stopped tracking AI tooling / scratch docs.
-
-The lesson reinforces point 6 below: AI is excellent for *speed*, but a deliberate review pass —
-human-led, AI-assisted — is what catches the architecture- and lifecycle-level issues.
-
-## What I would do differently next time
-
-1. **Start with the architecture, not the code**: I let the AI jump into implementation before the IPC mechanism and data flow were settled. A short architecture doc first (provider contract, filter model, security model) would have avoided the `call()`→`query()` migration and the missing-permission oversight.
-2. **Define the test strategy upfront**: I didn't plan for BackendApp unit tests until after the provider was written. If I'd specified "every layer has JVM tests" from the start, the AI would have structured the code differently (extracting `ArticleFilter.toSqlQuery()` earlier).
-3. **Review the generated code before building**: Some issues (async `onCreate`, swallowed errors) shipped to the build system before being caught in code review. A 5-minute read of each generated file before running Gradle would have saved several build cycles.
-4. **Formalize the multi-model split, don't stumble into it**: cross-checking one model's output with another caught real bugs, but I arrived at it ad hoc. Next time I'd assign roles up front — one model as the architecture/review authority, the others rotating on implementation — rather than discovering the value of disagreement halfway through.
+- **State the bar up front.** The AI often pushed for the simplest solution on the grounds that this
+  is a tiny demo project, and kept steering away from abstractions it judged as overkill. I should
+  have made clear from the start that the goal is to demonstrate architecture, scalability, security,
+  and testability — even where that looks like over-engineering for a project this size.
