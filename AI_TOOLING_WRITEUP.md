@@ -3,9 +3,7 @@
 ## Overview
 
 This project was built through iterative pair-programming with **several AI coding agents, used in
-parallel and deliberately cross-checked against each other**, on a Mac terminal. Most agents had only
-file read/write, bash, grep/glob search, and Gradle test output — no Android emulator or IDE — so
-on-device verification was a separate, later pass.
+parallel and deliberately cross-checked against each other**, on a Mac terminal.
 
 - **Agents / models** (used roughly evenly — see breakdown below): **opencode/ZCode driving GLM 5.2**, **Codex with GPT-5.5**, and **Claude (Sonnet and Opus)**.
 - **AI skills**: curated **Android / Kotlin / Compose** skill packs layered on top of the base models, steering output toward idiomatic patterns (StateFlow `UiState`, lifecycle-aware flow collection, Compose state hoisting, Coil image loading, Room `@RawQuery`) rather than each model's default.
