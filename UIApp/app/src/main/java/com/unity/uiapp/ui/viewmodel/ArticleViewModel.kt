@@ -1,9 +1,9 @@
 package com.unity.uiapp.ui.viewmodel
 
-import android.util.Log
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.unity.uiapp.core.Logger
 import com.unity.uiapp.data.ArticlesDataSource
 import com.unity.uiapp.data.model.Article
 import com.unity.uiapp.data.model.ArticleFilter
@@ -19,10 +19,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-
-private fun logD(tag: String, msg: String) = try { Log.d(tag, msg) } catch (_: RuntimeException) {}
-private fun logE(tag: String, msg: String, e: Throwable? = null) =
-    try { if (e != null) Log.e(tag, msg, e) else Log.e(tag, msg) } catch (_: RuntimeException) {}
 
 /**
  * Editable filter form shown in the UI. Lives in [ArticleUiState] so Compose can bind to it
@@ -50,7 +46,8 @@ data class ArticleUiState(
 @HiltViewModel
 class ArticleViewModel @Inject constructor(
     private val dataSource: ArticlesDataSource,
-    @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher
+    @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+    private val logger: Logger
 ) : ViewModel() {
 
     private val tag = "ArticleViewModel"
@@ -60,18 +57,18 @@ class ArticleViewModel @Inject constructor(
     private var fetchJob: Job? = null
 
     init {
-        logD(tag, "init: calling applyFilters()")
+        logger.d(tag, "init: calling applyFilters()")
         applyFilters()
     }
 
     fun updateTitleQuery(query: String) {
-        logD(tag, "updateTitleQuery: $query")
+        logger.d(tag, "updateTitleQuery: $query")
         _state.update { it.copy(titleQuery = query) }
     }
 
     fun updateRatingMin(min: Int) {
         val clamped = min.coerceIn(RATING_MIN, RATING_MAX)
-        logD(tag, "updateRatingMin: $min -> clamped to $clamped")
+        logger.d(tag, "updateRatingMin: $min -> clamped to $clamped")
         _state.update { it.copy(ratingMin = clamped) }
     }
 
@@ -85,7 +82,7 @@ class ArticleViewModel @Inject constructor(
         val filter = _state.value.toFilter()
         _state.update { it.copy(isLoading = true, error = null, isEmpty = false) }
         fetchJob = viewModelScope.launch(ioDispatcher) {
-            logD(tag, "applyFilters: filter=$filter")
+            logger.d(tag, "applyFilters: filter=$filter")
             try {
                 val articles = dataSource.fetchArticles(filter)
                 ensureActive()
@@ -100,7 +97,7 @@ class ArticleViewModel @Inject constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                logE(tag, "applyFilters: exception", e)
+                logger.e(tag, "applyFilters: exception", e)
                 _state.update {
                     it.copy(
                         isLoading = false,

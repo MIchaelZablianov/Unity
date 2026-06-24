@@ -1,5 +1,6 @@
 package com.unity.uiapp.ui.viewmodel
 
+import com.unity.uiapp.core.Logger
 import com.unity.uiapp.data.ArticlesDataSource
 import com.unity.uiapp.data.model.Article
 import com.unity.uiapp.data.model.ArticleFilter
@@ -30,7 +31,7 @@ class ArticleViewModelTest {
     @Before
     fun setUp() {
         fakeDataSource = FakeArticlesDataSource(testArticles)
-        viewModel = ArticleViewModel(fakeDataSource, ioDispatcher = testDispatcher)
+        viewModel = ArticleViewModel(fakeDataSource, ioDispatcher = testDispatcher, logger = NoOpLogger)
     }
 
     @Test
@@ -110,7 +111,7 @@ class ArticleViewModelTest {
     @Test
     fun applyFilters_error_setsError() = runTest(testDispatcher) {
         val failing = FakeArticlesDataSource(testArticles).also { it.shouldThrow = true }
-        val vm = ArticleViewModel(failing, ioDispatcher = testDispatcher)
+        val vm = ArticleViewModel(failing, ioDispatcher = testDispatcher, logger = NoOpLogger)
         testDispatcher.scheduler.advanceUntilIdle()
         val state = vm.state.value
         assertFalse(state.isLoading)
@@ -119,6 +120,11 @@ class ArticleViewModelTest {
         // The defining distinction from "no matches": a failure must NOT be reported as empty.
         assertFalse("error must not set isEmpty", state.isEmpty)
     }
+}
+
+private object NoOpLogger : Logger {
+    override fun d(tag: String, message: String) {}
+    override fun e(tag: String, message: String, throwable: Throwable?) {}
 }
 
 private class FakeArticlesDataSource(

@@ -5,7 +5,7 @@ import android.database.Cursor
 import android.net.Uri
 import android.os.CancellationSignal
 import android.os.OperationCanceledException
-import android.util.Log
+import com.unity.uiapp.core.Logger
 import com.unity.uiapp.data.model.Article
 import com.unity.uiapp.data.model.ArticleFilter
 import com.unity.uiapp.data.model.PlaceholderColor
@@ -22,14 +22,11 @@ import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private fun logD(tag: String, msg: String) = try { Log.d(tag, msg) } catch (_: RuntimeException) {}
-private fun logE(tag: String, msg: String, e: Throwable? = null) =
-    try { if (e != null) Log.e(tag, msg, e) else Log.e(tag, msg) } catch (_: RuntimeException) {}
-
 @Singleton
 class ContentResolverDataSource @Inject constructor(
     @param:ApplicationContext private val context: Context,
-    @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher
+    @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+    private val logger: Logger
 ) : ArticlesDataSource {
 
     private val tag = "UIDataSource"
@@ -39,7 +36,7 @@ class ContentResolverDataSource @Inject constructor(
     override suspend fun fetchArticles(filter: ArticleFilter): List<Article> =
         withContext(ioDispatcher) {
             val uri = filter.toUri(baseUri)
-            logD(tag, "fetchArticles: uri=$uri")
+            logger.d(tag, "fetchArticles: uri=$uri")
 
             // Cancel the binder query if the coroutine is cancelled or times out. Without this,
             // withTimeout only unwinds the coroutine while the provider keeps running the query.
@@ -53,7 +50,7 @@ class ContentResolverDataSource @Inject constructor(
                 }
             } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
                 handle?.dispose()
-                logE(tag, "fetchArticles: timed out", e)
+                logger.e(tag, "fetchArticles: timed out", e)
                 throw IOException("Timed out contacting backend", e)
             } catch (e: OperationCanceledException) {
                 throw CancellationException("Backend query was cancelled").also { it.initCause(e) }
@@ -62,7 +59,7 @@ class ContentResolverDataSource @Inject constructor(
                 throw e
             } catch (e: Exception) {
                 handle?.dispose()
-                logE(tag, "fetchArticles: query threw exception", e)
+                logger.e(tag, "fetchArticles: query threw exception", e)
                 throw IOException("Failed to query backend", e)
             } finally {
                 handle?.dispose()
@@ -75,7 +72,7 @@ class ContentResolverDataSource @Inject constructor(
             }
 
             val articles = mapCursorToArticles(cursor)
-            logD(tag, "fetchArticles: parsed ${articles.size} articles")
+            logger.d(tag, "fetchArticles: parsed ${articles.size} articles")
             articles
         }
 

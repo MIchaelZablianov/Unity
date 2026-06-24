@@ -2,12 +2,36 @@
 
 ## Overview
 
-This project was built through iterative pair-programming with an LLM-powered coding agent on a Mac terminal. The AI had no Android emulator or IDE access — only file read/write, bash, grep/glob search, and Gradle test output.
+This project was built through iterative pair-programming with **several AI coding agents, used in
+parallel and deliberately cross-checked against each other**, on a Mac terminal. Most agents had only
+file read/write, bash, grep/glob search, and Gradle test output — no Android emulator or IDE — so
+on-device verification was a separate, later pass.
 
-- **Agent**: ZCode (opencode CLI), plus a later AI-assisted review pass (see "Post-review hardening")
+- **Agents / models** (used roughly evenly — see breakdown below): **opencode/ZCode driving GLM 5.2**, **Codex with GPT-5.5**, and **Claude (Sonnet and Opus)**.
+- **AI skills**: curated **Android / Kotlin / Compose** skill packs layered on top of the base models, steering output toward idiomatic patterns (StateFlow `UiState`, lifecycle-aware flow collection, Compose state hoisting, Coil image loading, Room `@RawQuery`) rather than each model's default.
 - **Total files created/edited**: ~30 source files across 2 Gradle modules
 - **Total tests**: 44 (20 unit + 24 instrumented)
 - **Total iterations (build→test→fix cycles)**: ~50 across all phases
+
+---
+
+## Tools used, and roughly how often
+
+| Tool / model | What I used it for | Rough share |
+|---|---|---|
+| **opencode / ZCode + GLM 5.2** | Implementation, scaffolding, the build→test→fix loop | ~⅓ |
+| **Codex + GPT-5.5** | Implementation, a second opinion on design, generating tests | ~⅓ |
+| **Claude (Sonnet + Opus)** | Implementation, code/architecture review, debugging, on-device verification | ~⅓ |
+| **Android / Kotlin / Compose AI skills** | Enforcing idiomatic framework patterns across all of the above | As-needed, layered on top |
+
+No single model was the sole author — the work split roughly evenly across the three agents, and that
+was intentional. I'd have one model implement a slice, then have a *different* model review it or
+re-derive it from scratch. That cross-model disagreement is where a lot of the value came from: it
+surfaced the swallowed-error and lifecycle issues in review, and comparing how each model approached
+the IPC surface (`call()`/Bundle vs `query()`/Cursor) made the right choice obvious. The
+Android/Kotlin/Compose skills sat on top of all three and nudged output toward project conventions —
+`UiState` + `StateFlow`, `collectAsStateWithLifecycle`, stateless screen + thin route, Coil
+`AsyncImage` with the per-article placeholder color — instead of whatever each base model defaulted to.
 
 ---
 
@@ -23,7 +47,7 @@ Read assignment spec + existing files
         → Fix and repeat
 ```
 
-Key practice: **persistent context files** (`AGENTS.md`, `progress_summary.md`) were maintained between phases. Each phase summary included "Notes for Next Session" sections — critical because the AI has no memory between sessions.
+Key practice: **persistent context files** (`AGENTS.md`, `progress_summary.md`) were maintained between phases. Each phase summary included "Notes for Next Session" sections — critical because the agents have no memory between sessions, **and no shared memory across different tools**. These files were the hand-off mechanism that let one model pick up where another left off.
 
 ---
 
@@ -127,3 +151,4 @@ human-led, AI-assisted — is what catches the architecture- and lifecycle-level
 1. **Start with the architecture, not the code**: I let the AI jump into implementation before the IPC mechanism and data flow were settled. A short architecture doc first (provider contract, filter model, security model) would have avoided the `call()`→`query()` migration and the missing-permission oversight.
 2. **Define the test strategy upfront**: I didn't plan for BackendApp unit tests until after the provider was written. If I'd specified "every layer has JVM tests" from the start, the AI would have structured the code differently (extracting `ArticleFilter.toSqlQuery()` earlier).
 3. **Review the generated code before building**: Some issues (async `onCreate`, swallowed errors) shipped to the build system before being caught in code review. A 5-minute read of each generated file before running Gradle would have saved several build cycles.
+4. **Formalize the multi-model split, don't stumble into it**: cross-checking one model's output with another caught real bugs, but I arrived at it ad hoc. Next time I'd assign roles up front — one model as the architecture/review authority, the others rotating on implementation — rather than discovering the value of disagreement halfway through.

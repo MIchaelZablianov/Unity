@@ -1,5 +1,7 @@
 package com.unity.uiapp.di
 
+import com.unity.uiapp.core.AndroidLogger
+import com.unity.uiapp.core.Logger
 import com.unity.uiapp.data.ArticlesDataSource
 import com.unity.uiapp.data.ContentResolverDataSource
 import dagger.Binds
@@ -24,6 +26,10 @@ abstract class AppModule {
     abstract fun bindArticlesDataSource(
         impl: ContentResolverDataSource
     ): ArticlesDataSource
+
+    @Binds
+    @Singleton
+    abstract fun bindLogger(impl: AndroidLogger): Logger
 }
 
 @Module
